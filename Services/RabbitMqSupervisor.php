@@ -22,6 +22,11 @@ class RabbitMqSupervisor
     /**
      * @var array
      */
+    private $inet_http_server;
+
+    /**
+     * @var array
+     */
     private $commands;
 
     /**
@@ -64,6 +69,7 @@ class RabbitMqSupervisor
      *
      * @param \Phobetor\RabbitMqSupervisorBundle\Services\Supervisor $supervisor
      * @param array $paths
+     * @param array $inet_http_server
      * @param array $commands
      * @param array $consumers
      * @param array $multipleConsumers
@@ -73,10 +79,11 @@ class RabbitMqSupervisor
      * @param string $kernelRootDir
      * @param string $environment
      */
-    public function __construct(Supervisor $supervisor, array $paths, array $commands, $consumers, $multipleConsumers, $batchConsumers, $rpcServers, $config, $kernelRootDir, $environment)
+    public function __construct(Supervisor $supervisor, array $paths, array $inet_http_server, array $commands, $consumers, $multipleConsumers, $batchConsumers, $rpcServers, $config, $kernelRootDir, $environment)
     {
         $this->supervisor = $supervisor;
         $this->paths = $paths;
+        $this->inet_http_server = $inet_http_server;
         $this->commands = $commands;
         $this->consumers = $consumers;
         $this->multipleConsumers = $multipleConsumers;
@@ -278,8 +285,7 @@ class RabbitMqSupervisor
 
     public function generateSupervisorConfiguration()
     {
-        $configurationHelper = new ConfigurationHelper();
-        $content = $configurationHelper->getConfigurationStringFromDataArray(array(
+        $configuration = array(
             'unix_http_server' => array(
                 'file' => $this->paths['sock_file'],
                 'chmod' => '0700'
@@ -297,7 +303,16 @@ class RabbitMqSupervisor
             'include' => array(
                 'files' => sprintf('%s*.conf', $this->paths['worker_configuration_directory'])
             )
-        ));
+        );
+
+        $inetHttpServer = $this->inet_http_server;
+        if ($inetHttpServer['enabled']) {
+            unset($inetHttpServer['enabled']);
+            $configuration['inet_http_server'] = $inetHttpServer;
+        }
+
+        $configurationHelper = new ConfigurationHelper();
+        $content = $configurationHelper->getConfigurationStringFromDataArray($configuration);
         file_put_contents(
             $this->createSupervisorConfigurationFilePath(),
             $content
